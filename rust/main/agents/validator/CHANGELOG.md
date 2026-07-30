@@ -1,3 +1,8 @@
+## [2.4.0] - 2026-07-30
+
+* feat(validator): quorum-verify safety-critical merkle tree reads (#9124)
+* fix(validator): merge rpcUrls into additional quorum RPC vote (#9151)
+
 ## [2.3.0] - 2026-07-20
 
 * feat(tron): migrate Tron agents from gRPC to HTTP API (#8370)

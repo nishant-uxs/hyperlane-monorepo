@@ -1,3 +1,7 @@
+## [2.4.0] - 2026-07-30
+
+* fix(infra): restore Nibiru and B² agent operations (#9140)
+
 ## [2.3.0] - 2026-07-20
 
 * chore: jun 5 deprecations (21 chains) (#8860)

@@ -1,3 +1,7 @@
+## [2.4.0] - 2026-07-30
+
+* fix(relayer): bound validator signature retries (#9148)
+
 ## [2.3.0] - 2026-07-20
 
 * feat(infra): token-based IGP config, reclaim, relayer guard (#8910)
