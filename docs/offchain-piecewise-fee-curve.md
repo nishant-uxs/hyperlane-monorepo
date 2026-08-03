@@ -188,6 +188,29 @@ The example is a staging test, not a production recommendation. The 3 bps
 fallback preserves current configuration but may be less protective than the
 tail and must be reconsidered for production.
 
+The staging curve source is
+`typescript/infra/config/environments/mainnet3/warp/fees/moonpay-staging-piecewise.yaml`.
+From `typescript/infra`, preview the fully scaled, discovered slot set with:
+
+```bash
+pnpm tsx scripts/moonpay/set-curves.ts
+```
+
+The command is a dry run by default and does not load signing keys. After both
+staging warp configs have been applied and the preview has been reviewed, submit
+the displayed standing curves with an interactive confirmation:
+
+```bash
+pnpm tsx scripts/moonpay/set-curves.ts --submit
+```
+
+Use `--submit --yes` only in an already reviewed automation context. Submission
+loads the existing mainnet3 quote-signer and deployer keys from GCP, verifies
+signer authorization on every discovered piecewise leaf, and waits for one
+confirmation per quote. The staging warp apply and curve submission are
+deliberately separate operations; this change does not mutate staging or
+production by itself.
+
 ### Stage 2: automated publishing
 
 Build a service that derives curves from inventory, replacement paths, market

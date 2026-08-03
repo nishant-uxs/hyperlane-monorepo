@@ -1,4 +1,9 @@
-import { ChainMap, HypTokenRouterConfig, TokenType } from '@hyperlane-xyz/sdk';
+import {
+  ChainMap,
+  ChainName,
+  HypTokenRouterConfig,
+  TokenType,
+} from '@hyperlane-xyz/sdk';
 import { addressToBytes32, assert } from '@hyperlane-xyz/utils';
 
 import {
@@ -10,6 +15,7 @@ import { DEPLOYER } from '../../owners.js';
 import { SEALEVEL_WARP_ROUTE_HANDLER_GAS_AMOUNT } from '../consts.js';
 import { WarpRouteIds } from '../warpIds.js';
 import {
+  buildPiecewiseCrossCollateralRoutingFee,
   getRebalancingBridgesConfigFor,
   getUSDCRebalancingBridgesConfigFor,
   mergeAllowedBridges,
@@ -20,7 +26,7 @@ import {
 //   - all routers owned by the deployer key (easy iteration, no Safe/ICA governance)
 //   - default ISM everywhere (omit interchainSecurityModule -> mailbox default ISM)
 //   - default hook on EVM (omit hook); Solana keeps its IGP hook (required)
-//   - zero warp fee (omit tokenFee) -> no offchain-quote / CCR fee surface
+//   - BSC-only piecewise quoted fee surface for isolated curve testing
 // Rebalancing IS reproduced from prod: same allowedRebalancers (MCR signer) and the same
 // CCTP + Eclipse/Paradex/Igra/Radix + Iron (TBDA) bridge wiring per leg.
 // EXTRA_REBALANCER is additionally permitted on every EVM leg for staging (the Solana leg
@@ -41,6 +47,33 @@ const EXTRA_REBALANCER = '0x2cB236403574301029c7bDDfda133c6e0338a857';
 const ALLOWED_REBALANCERS = [REBALANCER, EXTRA_REBALANCER];
 const EVM_CHAINS = ['arbitrum', 'base', 'ethereum', 'polygon'] as const;
 type EvmChain = (typeof EVM_CHAINS)[number];
+const ROUTE_CHAINS = [
+  'solanamainnet',
+  'arbitrum',
+  'base',
+  'bsc',
+  'citrea',
+  'ethereum',
+  'katana',
+  'polygon',
+] as const satisfies readonly ChainName[];
+const QUOTE_SIGNERS = [
+  '0xEd1829805De615eEFC7303766D395Ea0a1B2b04d',
+  '0x6bb7818bbE8d88094Cf3620e58BC6BbEd542B867',
+];
+
+function buildBscPiecewiseFee() {
+  return buildPiecewiseCrossCollateralRoutingFee({
+    owner: DEPLOYER_EVM,
+    destinations: ROUTE_CHAINS,
+    targetRouteIds: [
+      WarpRouteIds.USDCCitreaMoonpaySTAGING,
+      WarpRouteIds.USDTCitreaMoonpaySTAGING,
+    ],
+    quoteSigners: QUOTE_SIGNERS,
+    requireAllTargetRoutes: false,
+  });
+}
 
 function getTBDAAddresses(): Record<
   'arbitrum' | 'base' | 'ethereum' | 'citrea' | 'polygon',
@@ -159,6 +192,7 @@ export async function getUSDCCitreaMoonpayStagingWarpConfig(
       ...additionalRebalancingConfigByChain.bsc,
       allowedRebalancers: ALLOWED_REBALANCERS,
       scale: { numerator: 1, denominator: 1_000_000_000_000 },
+      tokenFee: buildBscPiecewiseFee(),
       crossCollateralRouters,
     },
     citrea: {

@@ -2,6 +2,7 @@ import {
   ChainMap,
   ChainName,
   ChainSubmissionStrategy,
+  DEFAULT_ROUTER_KEY,
   HypTokenRouterConfig,
   MovableTokenConfig,
   TokenFeeConfigInput,
@@ -198,13 +199,17 @@ export function getRebalancingBridgesConfigFor(
  */
 export function getCrossCollateralTargetRoutersByChain(
   warpRouteIds: readonly WarpRouteIds[],
+  requireAllRoutes = true,
 ): ChainMap<string[]> {
   const registry = getRegistry();
   const routersByChain: ChainMap<string[]> = {};
 
   for (const warpRouteId of warpRouteIds) {
     const route = registry.getWarpRoute(warpRouteId);
-    assert(route, `Warp route ${warpRouteId} not found`);
+    if (!route) {
+      assert(!requireAllRoutes, `Warp route ${warpRouteId} not found`);
+      continue;
+    }
 
     for (const { chainName, addressOrDenom } of route.tokens) {
       assert(
@@ -220,6 +225,55 @@ export function getCrossCollateralTargetRoutersByChain(
   }
 
   return routersByChain;
+}
+
+export function buildPiecewiseCrossCollateralRoutingFee({
+  owner,
+  destinations,
+  targetRouteIds,
+  quoteSigners,
+  fallbackBps = 3,
+  maxBands = 4,
+  requireAllTargetRoutes = true,
+}: {
+  owner: string;
+  destinations: readonly ChainName[];
+  targetRouteIds: readonly WarpRouteIds[];
+  quoteSigners: string[];
+  fallbackBps?: number;
+  maxBands?: number;
+  requireAllTargetRoutes?: boolean;
+}): TokenFeeConfigInput {
+  const targetRouters = getCrossCollateralTargetRoutersByChain(
+    targetRouteIds,
+    requireAllTargetRoutes,
+  );
+  const piecewiseFee = (): TokenFeeConfigInput => ({
+    type: TokenFeeType.OffchainQuotedPiecewiseLinearFee,
+    owner,
+    bps: fallbackBps,
+    maxBands,
+    quoteSigners,
+  });
+
+  return {
+    type: TokenFeeType.CrossCollateralRoutingFee,
+    owner,
+    feeContracts: Object.fromEntries(
+      destinations.map((destination) => [
+        destination,
+        {
+          ...Object.fromEntries(
+            (targetRouters[destination] ?? []).map((router) => [
+              router,
+              piecewiseFee(),
+            ]),
+          ),
+          [DEFAULT_ROUTER_KEY]: piecewiseFee(),
+        },
+      ]),
+    ),
+  };
 }
 
 export const getRebalancingUSDTConfigForChain = (

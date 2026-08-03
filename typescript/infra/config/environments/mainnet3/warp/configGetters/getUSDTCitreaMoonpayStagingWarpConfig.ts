@@ -1,4 +1,9 @@
-import { ChainMap, HypTokenRouterConfig, TokenType } from '@hyperlane-xyz/sdk';
+import {
+  ChainMap,
+  ChainName,
+  HypTokenRouterConfig,
+  TokenType,
+} from '@hyperlane-xyz/sdk';
 import { addressToBytes32, assert } from '@hyperlane-xyz/utils';
 
 import {
@@ -8,11 +13,14 @@ import {
 import { getDomainId, getRegistry } from '../../../../registry.js';
 import { DEPLOYER } from '../../owners.js';
 import { WarpRouteIds } from '../warpIds.js';
-import { getRebalancingBridgesConfigFor } from './utils.js';
+import {
+  buildPiecewiseCrossCollateralRoutingFee,
+  getRebalancingBridgesConfigFor,
+} from './utils.js';
 
 // Staging mimic of the production CROSS/moonpay USDT route (getUSDTCitreaMoonpayWarpConfig).
 // Same simplifications as the USDC staging getter: deployer-owned, default ISM, default hook,
-// zero fee. 6 EVM chains (no Solana XO leg, no Citrea ctUSD leg — those live
+// BSC-only piecewise quoted fee. 6 EVM chains (no Solana XO leg, no Citrea ctUSD leg — those live
 // on the USDC route, same as prod).
 // Rebalancing IS reproduced from prod: same allowedRebalancers (MCR signer) and the same
 // OFT + Eclipse USDT bridge wiring (arbitrum/bsc/ethereum/polygon; base + katana have none).
@@ -26,6 +34,33 @@ const EXTRA_REBALANCER = '0x2cB236403574301029c7bDDfda133c6e0338a857';
 const ALLOWED_REBALANCERS = [REBALANCER, EXTRA_REBALANCER];
 
 const EVM_CHAINS = ['arbitrum', 'base', 'ethereum', 'polygon'] as const;
+const ROUTE_CHAINS = [
+  'solanamainnet',
+  'arbitrum',
+  'base',
+  'bsc',
+  'citrea',
+  'ethereum',
+  'katana',
+  'polygon',
+] as const satisfies readonly ChainName[];
+const QUOTE_SIGNERS = [
+  '0xEd1829805De615eEFC7303766D395Ea0a1B2b04d',
+  '0x6bb7818bbE8d88094Cf3620e58BC6BbEd542B867',
+];
+
+function buildBscPiecewiseFee() {
+  return buildPiecewiseCrossCollateralRoutingFee({
+    owner: DEPLOYER_EVM,
+    destinations: ROUTE_CHAINS,
+    targetRouteIds: [
+      WarpRouteIds.USDCCitreaMoonpaySTAGING,
+      WarpRouteIds.USDTCitreaMoonpaySTAGING,
+    ],
+    quoteSigners: QUOTE_SIGNERS,
+    requireAllTargetRoutes: false,
+  });
+}
 
 // Cross-collateral peers reference the sibling USDC staging route by deployed address.
 // Returns {} until that route is registered; wire on a second pass via `warp apply`.
@@ -83,6 +118,7 @@ export async function getUSDTCitreaMoonpayStagingWarpConfig(
       ...oftRebalancingConfigByChain.bsc,
       allowedRebalancers: ALLOWED_REBALANCERS,
       scale: { numerator: 1, denominator: 1_000_000_000_000 },
+      tokenFee: buildBscPiecewiseFee(),
       crossCollateralRouters,
     },
     ethereum: {

@@ -1,0 +1,17 @@
+origins:
+  bsc:
+    # Human token units. The updater reads each fee token's local decimals
+    # before scaling these values (the BSC staging assets currently use 18).
+    breakpoints:
+      - '100000'
+      - '250000'
+    # Marginal rate in each band: [0,100k), [100k,250k), [250k,+inf).
+    marginalBps:
+      - 1
+      - 12
+      - 4
+routeIds:
+  - USDC/moonpay-staging
+  - USDT/moonpay-staging
+ttl: 24h
+version: 1
