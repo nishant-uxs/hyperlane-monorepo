@@ -1127,6 +1127,10 @@ export {
   OffchainQuotedLinearFeeConfig,
   OffchainQuotedLinearFeeConfigSchema,
   OffchainQuotedLinearFeeInputConfigSchema,
+  OffchainQuotedPiecewiseLinearFeeConfig,
+  OffchainQuotedPiecewiseLinearFeeConfigSchema,
+  OffchainQuotedPiecewiseLinearFeeInputConfig,
+  OffchainQuotedPiecewiseLinearFeeInputConfigSchema,
   QuoteSignersSchema,
   QuoteSignersConfig,
 } from './fee/types.js';
