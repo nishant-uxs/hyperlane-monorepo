@@ -1,5 +1,63 @@
 # @hyperlane-xyz/sdk
 
+## 40.0.0
+
+### Major Changes
+
+- 57b1e14: The `RateLimited` refill window is made configurable per instance. `RateLimited` now takes a `_duration` constructor argument (previously a hardcoded `1 days` constant), and `RateLimitedHook`, `RateLimitedIsm`, and `DelayedFlowRouterHookIsm` thread it through. The `DURATION` getter is preserved as a `public immutable` so existing on-chain reads still work. `RateLimitedHookConfig` and `RateLimitedIsmConfig` gain a `duration` field: parsing a config that omits it applies a default of 1 day (86400s), matching the previous on-chain window, but the field is present on the exported (inferred) config types, so TypeScript callers constructing these configs must supply it. The deploy/read paths surface it. Duration is immutable on-chain, so `EvmHookModule` and `EvmIsmModule` redeploy a fresh `RateLimited` hook/ISM when the desired duration changes.
+
+### Minor Changes
+
+- 469da6d: The core Solidity package adds `AtomicLocalRebalancingBridge` for same-chain local rebalances. The bridge binds its source router at construction so the caller cannot supply an arbitrary router, guards the entire local-rebalance flow (including the user-supplied calls) against reentrancy, funds the destination router only from output produced by those calls, and refunds the token balances accrued during the call to the rebalancer while leaving any pre-existing token balance untouched (unspent native is refunded in full). Its entry point `rebalance(uint32,uint256,ITokenBridge,bytes32,bytes)`, defined by the new `IRebalancingBridge` interface, mirrors the canonical rebalance signature: the source argument is a checked echo of the bound router, the destination recipient is supplied per call and validated against the source's rebalance targets, and the trailing bytes carry the ABI-encoded calls. The bridge is `Ownable`; tokens or native accidentally sent to it are recoverable via `recoverToken`/`recoverNativeBalance`, callable only by its owner.
+
+  `CrossCollateralRouter` implements the new `IRebalanceTargets` interface, allowing multiple local rebalance recipients per domain beyond the enrolled remote router. Owners manage the additional targets with `addRebalanceTarget`/`removeRebalanceTarget`, and `isRebalanceTarget` authorizes a recipient (the zero address is never authorized, even on a domain with no enrolled router). The source of an `AtomicLocalRebalancingBridge` must implement `IRebalanceTargets`; the constructor verifies the source is a contract.
+
+  `MovableCollateralRouter` no longer creates standing bridge token approvals. `addBridge` only allowlists a bridge, `HypERC20Collateral` no longer approves bridges during bridge enrollment, and `rebalance` grants an exact temporary collateral-token approval based on the bridge quote and revokes any unconsumed allowance after `transferRemote`.
+
+  The `approveTokenForBridge(address,address)` helper is deprecated and clears legacy standing approval instead of setting max approval. The selector is retained for upgrade and governance-tooling compatibility.
+
+  The SDK only emits bridge-approval transactions from `allowedRebalancingBridges[].approvedTokens` for routers on a legacy (pre-atomic-rebalancing) contract version, where `approveTokenForBridge` still grants a standing max approval. On newer routers the field is ignored because allowances are granted per rebalance and the same selector revokes. During `warp apply`, the SDK also revokes legacy standing rebalancing-bridge allowances when a route is being upgraded to, or is already on, the revoke-semantics implementation (so a partially-applied upgrade whose revokes did not execute can be retried), covering both the collateral token and any configured `approvedTokens` for every bridge that remains allowlisted, matched by bridge address across all domains (so a bridge moved between domains is still cleaned up), so an upgraded route does not retain the old max approvals. The SDK exports `MAX_LEGACY_BRIDGE_APPROVAL_VERSION` and `bridgeApprovalGrantsMaxAllowance(version)` so callers can determine whether `approveTokenForBridge` grants or revokes for a given contract version; the governance transaction reader uses this to read the target router's version and describe the call as a grant or a revoke accordingly.
+
+- a7f757b: Added provider-safe multi-address log filters with validation, pagination, RPC fallback, and deterministic explorer exclusion.
+
+### Patch Changes
+
+- 745fb77: Constructor-configured variants were added for directly deployed domain, incremental domain, and default fallback routing ISMs.
+- 745fb77: Mailbox proxy ownership was established atomically during construction before its default ISM and hooks were configured.
+- 1cac66f: Rotated the stalled Merkly validator out of the hyperevm `default_ism` set and reconfigured it to 2-of-3 (AW / Mitosis / Luganodes).
+- c6a2f61: Updated `expandWarpDeployConfig` to canonicalize `allowedRebalancingBridges` keys to domain IDs, mirroring the treatment of `remoteRouters` and `destinationGas`. Previously a config keyed by chain name compared unequal to the domain-ID-keyed on-chain state and read as drift; now name-keyed and domain-ID-keyed configs compared equal. Keys resolving to the same canonical domain ID had their bridges merged by bridge identity — unioning `approvedTokens` — so a bridge listed under both a chain-name key and its domain-ID key no longer expanded to a duplicate that read as permanent drift against the deduplicated on-chain state.
+- Updated dependencies [745fb77]
+- Updated dependencies [745fb77]
+- Updated dependencies [469da6d]
+- Updated dependencies [74f3760]
+- Updated dependencies [abeeb52]
+- Updated dependencies [8944dd2]
+- Updated dependencies [eb9c37c]
+- Updated dependencies [3a74600]
+- Updated dependencies [57b1e14]
+- Updated dependencies [f3a6a4e]
+- Updated dependencies [d6e923f]
+- Updated dependencies [4c4f3f9]
+- Updated dependencies [4c4f3f9]
+- Updated dependencies [5830b8e]
+- Updated dependencies [d3bbedf]
+- Updated dependencies [e5908e9]
+- Updated dependencies [8944dd2]
+- Updated dependencies [89e6a8e]
+- Updated dependencies [c2301b2]
+- Updated dependencies [de37b68]
+- Updated dependencies [c0ca851]
+- Updated dependencies [745fb77]
+  - @hyperlane-xyz/core@12.0.0
+  - @hyperlane-xyz/tron-sdk@24.0.2
+  - @hyperlane-xyz/deploy-sdk@8.0.2
+  - @hyperlane-xyz/aleo-sdk@40.0.0
+  - @hyperlane-xyz/starknet-core@40.0.0
+  - @hyperlane-xyz/cosmos-sdk@40.0.0
+  - @hyperlane-xyz/radix-sdk@40.0.0
+  - @hyperlane-xyz/utils@40.0.0
+  - @hyperlane-xyz/provider-sdk@8.0.2
+
 ## 39.1.0
 
 ### Minor Changes
